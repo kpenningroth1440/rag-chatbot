@@ -1,0 +1,6 @@
+couchbase==4.3.5
+python-dotenv==1.0.0
+langchain
+langchain-community
+sentence-transformers
+numpy
