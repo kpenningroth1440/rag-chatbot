@@ -21,7 +21,9 @@
 
 1. Create project folder (ex. rag-chatbot) and clone this repo into it:
 
+   ```bash
    git clone https://github.com/couchbaselabs/rag-chatbot.git
+   ```
 
 2. Create a `.env` file in the root of the project folder with your Couchbase Capella credentials:
 
