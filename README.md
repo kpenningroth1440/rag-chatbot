@@ -31,7 +31,7 @@
 
 ### Setup Instructions
 
-#### Create project folder (ex. rag-chatbot) and clone this repo into it:
+#### Navigate to a folder you want this project to live in and clone this repo into that folder:
 
    ```bash
 # must be at root level of folder in your terminal
@@ -45,8 +45,7 @@
    - DEV_CAPELLA_ADMIN_PASSWORD
    - DEV_CAPELLA_BUCKET_NAME
 
-     <img width="755" alt="Screenshot 2025-03-15 at 1 48 55 PM" src="https://github.com/user-attachments/assets/dbbd4c3b-cb9b-46f0-90be-e3232978310d" />
-
+<img width="1046" alt="Screenshot 2025-03-15 at 1 56 01 PM" src="https://github.com/user-attachments/assets/bd26729f-ac0b-4882-b6f9-ec2b0de0a061" />
 
 #### Run the setup script, make sure to run it from the root of the project folder:
 
