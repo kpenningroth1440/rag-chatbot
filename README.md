@@ -2,7 +2,7 @@
 
 1. Data Preparation: We add embeddings, i.e. "numbers with meaning"` to each document in the database.
 2. Chatbot: You ask a question to the chatbot, e.g., "What is the capital of France?"
-3. The chatbot will use the question to retrieve the most relevant documents from the database, using vector search and full text search (N1QL) if needed or desired. It will find embeddings that are most similar to the question's embedding. It will also find documents that contain keywords which most closely match the question's keywords.
+3. The chatbot will use the question to retrieve the most relevant documents from the database, using Capella vector search and Capella full text search if needed or desired. The chatbot will find embeddings that are most similar to the question's embedding. It can also find documents that contain keywords which most closely match the question's keywords, if the user desires.
 4. The chatbot will then use the retrieved documents to generate a response, after formatting into a readable answer.
 5. The response is then displayed to the user.
 
@@ -12,10 +12,21 @@
 
 - Python 3.10 or higher: https://www.python.org/downloads/
 - Couchbase Capella Community Edition Account
-- - Make sure to start a free Capella cluster: https://cloud.couchbase.com/sign-up
-- - Add the credentials to the cluster access credentials in the Capella UI
-- - Add your computer's IP address to the allowed IP addresses in the Capella UI
-- - NOTE: If you are using a VPN, you need to add the VPN's IP address to the allowed IP addresses in the Capella UI. Also, if you switch networks, you need to add your new IP address to the allowed IP addresses in the Capella UI.
+  - Make sure to start a free Capella cluster: https://cloud.couchbase.com/sign-up
+  - Add the credentials (see below) to the cluster access credentials in the Capella UI, you will specify these.
+  - Add your computer's IP address to the allowed IP addresses in the Capella UI
+  - IMPORTANT:
+     - If you are using a VPN, you need to add the VPN's IP address to the allowed IP addresses in the Capella UI. Also, if you switch networks, 
+       you need to add your new IP address to the allowed IP addresses in the Capella UI.
+     - The chatbot will create the schema for the vectors collection, but you will need to
+       create the vector index. Make sure to use the "embedding" field for indexing in the vectors collection. You can run the chatbot up until         the collection is created (your terminal will print this), but once that's done create the index, then proceed in your terminal.
+        - https://docs.couchbase.com/cloud/vector-search/vector-search.html
+     - You will need to create the full text search index yourself in Capella UI. You will want to use the same fields as this project does
+       if you want this code to work as is. I utilized the "landmark" collection for this project. The keyword search option within the chatbot 
+       will not work until this is done.
+     - For the index names, I used:
+        - landmarks-vector-index (INDEX FOR VECTOR SEARCH)
+        - landmarks-text-index (INDEX FOR FULL TEXT SEARCH)
 
 ### Setup Instructions
 
