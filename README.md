@@ -45,44 +45,44 @@
 
 3. Run the setup script, make sure to run it from the root of the project folder:
 
-#### On Mac/Linux:
+  #### On Mac/Linux:
 
-```bash
-# Make scripts executable
-chmod +x setup.sh run.sh
+  ```bash
+  # Make scripts executable
+  chmod +x setup.sh run.sh
+  
+  # Run the setup script
+  ./setup.sh
+  ```
 
-# Run the setup script
-./setup.sh
-```
-
-#### On Windows:
-
-```bash
-# Run the setup script
-setup.bat
-```
+  #### On Windows:
+  
+  ```bash
+  # Run the setup script
+  setup.bat
+  ```
 
 4. Run the application:
 
-#### On Mac/Linux:
-
-```bash
-./run.sh
-```
-
-#### On Windows:
-
-```bash
-run.bat
-```
+  #### On Mac/Linux:
+  
+  ```bash
+  ./run.sh
+  ```
+  
+  #### On Windows:
+  
+  ```bash
+  run.bat
+  ```
 
 The setup scripts will:
 
-- Create a virtual environment
-- Activate the virtual environment
-- Install all required dependencies
+  - Create a virtual environment
+  - Activate the virtual environment
+  - Install all required dependencies
 
 The run scripts will:
 
-- Activate the virtual environment if not already activated
-- Start the chatbot application
+  - Activate the virtual environment if not already activated
+  - Start the chatbot application
