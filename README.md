@@ -30,22 +30,22 @@
 
 ### Setup Instructions
 
-1. Create project folder (ex. rag-chatbot) and clone this repo into it:
+#### Create project folder (ex. rag-chatbot) and clone this repo into it:
 
    ```bash
    git clone https://github.com/couchbaselabs/rag-chatbot.git
    ```
 
-2. Create a `.env` file in the root of the project folder with your Couchbase Capella credentials:
+#### Create a `.env` file in the root of the project folder with your Couchbase Capella credentials:
 
    - DEV_CAPELLA_ENDPOINT
    - DEV_CAPELLA_ADMIN_USER
    - DEV_CAPELLA_ADMIN_PASSWORD
    - DEV_CAPELLA_BUCKET_NAME
 
-3. Run the setup script, make sure to run it from the root of the project folder:
+#### Run the setup script, make sure to run it from the root of the project folder:
 
-  #### On Mac/Linux:
+  ##### On Mac/Linux:
 
   ```bash
   # Make scripts executable
@@ -55,22 +55,22 @@
   ./setup.sh
   ```
 
-  #### On Windows:
+  ##### On Windows:
   
   ```bash
   # Run the setup script
   setup.bat
   ```
 
-4. Run the application:
+#### Run the application:
 
-  #### On Mac/Linux:
+  ##### On Mac/Linux:
   
   ```bash
   ./run.sh
   ```
   
-  #### On Windows:
+  ##### On Windows:
   
   ```bash
   run.bat
