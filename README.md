@@ -38,12 +38,15 @@
    git clone https://github.com/kpenningroth1440/rag-chatbot
    ```
 
-#### Create a `.env` file in the root of the project folder with your Couchbase Capella credentials:
+#### Create a file called `.env` in the root of the project folder with your Couchbase Capella credentials:
 
    - DEV_CAPELLA_ENDPOINT
    - DEV_CAPELLA_ADMIN_USER
    - DEV_CAPELLA_ADMIN_PASSWORD
    - DEV_CAPELLA_BUCKET_NAME
+
+     <img width="755" alt="Screenshot 2025-03-15 at 1 48 55 PM" src="https://github.com/user-attachments/assets/dbbd4c3b-cb9b-46f0-90be-e3232978310d" />
+
 
 #### Run the setup script, make sure to run it from the root of the project folder:
 
