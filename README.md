@@ -47,7 +47,7 @@
 
 <img width="1046" alt="Screenshot 2025-03-15 at 1 56 01 PM" src="https://github.com/user-attachments/assets/bd26729f-ac0b-4882-b6f9-ec2b0de0a061" />
 
-#### Run the setup script, make sure to run it from the root of the project folder:
+#### Run the setup script, make sure to run it from the root of the project folder (i.e. you must be at the "rag-chatbot" folder level your current directory:
 
   ##### On Mac/Linux:
 
