@@ -34,6 +34,7 @@
 #### Create project folder (ex. rag-chatbot) and clone this repo into it:
 
    ```bash
+# must be at root level of folder in your terminal
    git clone https://github.com/couchbaselabs/rag-chatbot.git
    ```
 
