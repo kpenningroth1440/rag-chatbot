@@ -68,38 +68,14 @@ class CapellaClient:
     def create_embedding_collection(self, scope_name, collection_name):
         """
         Create a new collection to store vector embeddings.
-        Adjust schema as needed.
         """
         try:
             create_query = f"""
-            CREATE COLLECTION `{self.bucket_name}`.`{scope_name}`.`{collection_name}` WITH {{
-              "schema": {{
-                "type": "object",
-                "properties": {{
-                  "created_at": {{
-                    "type": "string",
-                    "format": "date-time",
-                    "description": "Timestamp when the document was created"
-                  }},
-                  "doc_id": {{
-                    "type": "string",
-                    "description": "Identifier of the original document"
-                  }},
-                  "embedding": {{
-                    "type": "array",
-                    "items": {{
-                      "type": "number"
-                    }},
-                    "description": "Vector embedding representation"
-                  }}
-                }},
-                "required": ["created_at", "doc_id", "embedding"]
-              }}
-            }}
+            CREATE COLLECTION `{self.bucket_name}`.`{scope_name}`.`{collection_name}`
             """
             self.execute_query(create_query)
             print(f"Collection {scope_name}.{collection_name} created or already exists")
             return True
         except Exception as e:
-            print(f"Collection was not created, collection may already exist.")
+            print(f"Collection was not created, collection may already exist.", e)
             return False

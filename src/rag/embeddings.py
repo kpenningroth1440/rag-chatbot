@@ -47,13 +47,14 @@ class EmbeddingGenerator:
             except Exception as e:
                 print(f"Capella collection access failed, make sure the collection exists: {e}")
                 print("Trying to insert via query...")
+                client.create_embedding_collection(scope_name, collection_name)
                 # If Capella collection access fails, try to insert via query
                 query = f"""
                 INSERT INTO `{client.bucket_name}`.`{scope_name}`.`{collection_name}`
                 (KEY, VALUE)
                 VALUES ('vector::{doc_id}', {json.dumps(vector_doc)})
                 """
-                client.cluster.execute_query(query)
+                client.execute_query(query)
                 return True
                 
         except Exception as e:
