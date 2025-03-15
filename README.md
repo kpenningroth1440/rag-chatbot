@@ -80,6 +80,12 @@
   run.bat
   ```
 
+#### Quit:
+```python
+once you start the chabot, you can quit by typing "Quit" in your terminal
+or press ctrl+c to kill the program
+```
+
 The setup scripts will:
 
   - Create a virtual environment
