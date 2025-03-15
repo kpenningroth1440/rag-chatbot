@@ -19,7 +19,7 @@
      - If you are using a VPN, you need to add the VPN's IP address to the allowed IP addresses in the Capella UI. Also, if you switch networks, 
        you need to add your new IP address to the allowed IP addresses in the Capella UI.
      - The chatbot will create the schema for the vectors collection, but you will need to
-       create the vector index. Make sure to use the "embedding" field for indexing in the vectors collection. You can run the chatbot up until         the collection is created (your terminal will print this), but once that's done create the index, then proceed in your terminal.
+       create the vector index. Make sure to use the "embedding" field for indexing in the vectors collection. You can run the chatbot up until         the collection is created (your terminal will print this is created), but once that's done create the index, then proceed in your terminal.
         - https://docs.couchbase.com/cloud/vector-search/vector-search.html
      - You will need to create the full text search index yourself in Capella UI. You will want to use the same fields as this project does
        if you want this code to work as is. I utilized the "landmark" collection for this project. The keyword search option within the chatbot 
