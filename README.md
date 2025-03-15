@@ -35,7 +35,7 @@
 
    ```bash
 # must be at root level of folder in your terminal
-   git clone https://github.com/couchbaselabs/rag-chatbot.git
+   git clone https://github.com/kpenningroth1440/rag-chatbot
    ```
 
 #### Create a `.env` file in the root of the project folder with your Couchbase Capella credentials:
