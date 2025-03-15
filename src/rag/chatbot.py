@@ -1,62 +1,94 @@
-from langchain.chains import RetrievalQA
+from langchain.chains import create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_community.llms import FakeListLLM
+import json
 
 class TravelChatbot:
     """
-    A chatbot for answering travel-related questions,
+    Chatbot for answering travel-related questions
     based off the travel-sample dataset.
+    Uses a fake LLM that returns documents retrieved
+    by the CouchbaseRetriever in this project.
     """
     
     def __init__(self, retriever):
+        """
+        Initialize the chatbot with a retriever.
+        Uses a fake LLM that just returns the retrieved documents.
+        """
         self.retriever = retriever
-        # Since we're not using an actual LLM API, we'll use a fake LLM
-        # In a real implementation, you would use an actual LLM like OpenAI
-        self.llm = FakeListLLM(responses=["I'll format the retrieved information for you."])
         
-        # Create a QA chain
-        self.qa_chain = RetrievalQA.from_chain_type(
-            llm=self.llm,
-            chain_type="stuff",
-            retriever=self.retriever,
-            return_source_documents=True
+        # Create a fake LLM that just returns formatted content
+        # SOURCE: https://python.langchain.com/api_reference/core/language_models/langchain_core.language_models.fake.FakeListLLM.html
+        self.llm = FakeListLLM(
+            responses=["I'll format the retrieved information for you."]
+        )
+        system_prompt = (
+            "You are a helpful travel assistant that provides information about landmarks and destinations. "
+            "Use the following context to answer the user's question. "
+            "If you don't know the answer based on the context, say you don't know but offer anything you know about the topic. "
+            "Keep your answers concise, avoid using complex words and be helpful.\n\n"
+            "Context: {context}"
+        )
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", system_prompt),
+                ("human", "{input}"),
+            ]
+        )
+        # Create the document chain
+        docs_chain = create_stuff_documents_chain(self.llm, prompt)
+        # Create the retrieval chain
+        self.qa_chain = create_retrieval_chain(
+            self.retriever, 
+            docs_chain
         )
         
     def answer_question(self, question):
         """
-        Answer a user question using the retrieval system.
+        Answer a travel-related question using retrieved documents.
         """
-        # Get the raw result from QA chain
-        result = self.qa_chain({"query": question})
-        
-        # Extract documents
-        source_docs = result.get("source_documents", [])
-        
-        if not source_docs:
-            return "I couldn't find any information related to your question. Could you try asking in a different way?"
-        
-        # Format response
-        response = "Here's what I found regarding your question:\n\n"
-        
-        for i, doc in enumerate(source_docs[:3], 1):  # Limit to top 3 results
-            content = doc.page_content
-            try:
-                # Parse content
-                if isinstance(content, str) and content.startswith("{"):
-                    import ast
-                    content_dict = ast.literal_eval(content)
-                    
-                    # Format information
-                    response += f"#{i} {content_dict.get('name', 'Unknown Landmark')}\n"
-                    if "country" in content_dict:
-                        response += f"Location: {content_dict.get('city', '')}, {content_dict.get('country', '')}\n"
-                    if "content" in content_dict:
-                        response += f"Description: {content_dict.get('content', '')}\n"
+        try:
+            # get answer from chain
+            # behind the scenes this method invokes the retreiver's get_relevant_documents method,
+            # utilizing the custom retreiver (CouchbaseRetriever) in this project,
+            # this retreiver inherits from BaseRetriever, 
+            # which has a get_relevant_documents method as well
+            result = self.qa_chain.invoke({"input": question})
+            source_docs = result.get("context", [])
+            if not source_docs:
+                return "I couldn't find any information related to your question. Could you try asking in a different way?"
+            response = "Here's what I found regarding your question:\n\n"
+            for i, doc in enumerate(source_docs, 1):
+                content = doc.page_content
+                if isinstance(content, dict):
+                    content_dict = content
                 else:
-                    response += f"#{i} {content}\n"
-            except:
-                # Fallback to raw content if parsing fails
-                response += f"#{i} {content}\n"
+                    try:
+                        content_dict = json.loads(content)
+                    except Exception as e:
+                        print(f"Error parsing content: {e}, content for parsing: {content}")
+                        # Fallback to raw content
+                        response += f"#{i} {str(content)[:100]}...\n"
+                        continue
+                # Format information
+                response += f"#{i} {content_dict.get('name', 'Unknown Landmark')}\n"
+                response += f"Source: {doc.metadata.get('source', 'Unknown')}\n"
+                if "country" in content_dict:
+                    response += f"Location: {content_dict.get('city', '')}, {content_dict.get('country', '')}\n"
+                if "type" in content_dict:
+                    response += f"Type: {content_dict.get('type', '')}\n"
+                if "activity" in content_dict:
+                    response += f"Activity: {content_dict.get('activity', '')}\n"
+                if "content" in content_dict:
+                    response += f"Description: {content_dict.get('content', '')}\n"
+                response += "\n"
             
-            response += f"Source: {doc.metadata.get('source', 'Unknown')}\n\n"
-        
-        return response 
+            return response
+            
+        except Exception as e:
+            print(f"Error answering question: {e}")
+            import traceback
+            traceback.print_exc()
+            return "I'm having trouble answering that question right now. Could you try asking again in a different way?" 

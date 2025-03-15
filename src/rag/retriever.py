@@ -1,207 +1,218 @@
 from langchain_core.retrievers import BaseRetriever
 from langchain.schema import Document
-from typing import List, Any
+from typing import List
+import couchbase.search as search
+from couchbase.options import SearchOptions
+from couchbase.vector_search import VectorQuery, VectorSearch
 import json
 from pydantic import Field
+from db.capella_client import CapellaClient
+from rag.embeddings import EmbeddingGenerator
 
 class CouchbaseRetriever(BaseRetriever):
     """
-    Retriever that uses both N1QL and vector search in Couchbase.
+    Document retriever that can use both FTS (Full Text Search)
+    and vector search w/ Couchbase Capella.
     """
+    capella_client: CapellaClient = Field(default=None)
+    embedding_generator: EmbeddingGenerator = Field(default=None)
+    vector_search_index_name: str = Field(default="")
+    text_search_index_name: str = Field(default="")
+    collection_name: str = Field(default="")
+    # if vector search is used, the number of candidates to return
+    # if keyword search is used, the number of candiates will double
+    num_candidates: int = 3
+    keyword_search: bool = True
     
-    # Define fields properly for Pydantic model
-    capella_client: Any = Field(description="Couchbase Capella client")
-    embedding_generator: Any = Field(description="Embedding generator")
-    collection_name: str = Field(default="travel-sample.inventory.landmark", description="Collection name")
-    
-    def __init__(self, capella_client, embedding_generator, collection_name="inventory.landmark"):
-        # If collection_name doesn't include the bucket name, add it
+    def __init__(self, capella_client, embedding_generator, vector_search_index_name, collection_name, num_candidates, keyword_search, text_search_index_name=None):
+        # Add bucket name to collection name if not provided
         if collection_name.count('.') == 1:
             collection_name = f"{capella_client.bucket_name}.{collection_name}"
         
-        # Initialize with proper field names for Pydantic
-        super().__init__(
-            capella_client=capella_client,
-            embedding_generator=embedding_generator,
-            collection_name=collection_name
-        )
+        # initialize LangChain BaseRetriever, the parent class
+        super().__init__()
+        
+        # Store parameters
+        self.capella_client = capella_client
+        self.embedding_generator = embedding_generator
+        self.collection_name = collection_name
+        self.vector_search_index_name = vector_search_index_name
+        self.num_candidates = num_candidates
+        self.keyword_search = keyword_search
+        self.text_search_index_name = text_search_index_name
     
-    def _get_relevant_documents(self, query: str) -> List[Document]:
+    def _ensure_connection(self):
         """
-        Get documents relevant to the query using both keyword and vector search.
+        Ensure the connection to Couchbase is active, reconnect if needed.
         """
-        # Generate embedding for the query
-        query_embedding = self.embedding_generator.generate_embedding(query)
-        
-        # Perform vector search
-        vector_results = self._vector_search(query, query_embedding)
-        
-        # Perform keyword search
-        keyword_results = self._keyword_search(query)
-        
-        # Combine and deduplicate results
-        all_results = {}
-        
-        # Add vector search results
-        for doc in vector_results:
-            doc_id = doc.metadata.get("id")
-            if doc_id:
-                all_results[doc_id] = doc
-                
-        # Add keyword search results
-        for doc in keyword_results:
-            doc_id = doc.metadata.get("id")
-            if doc_id and doc_id not in all_results:
-                all_results[doc_id] = doc
-                
-        return list(all_results.values())
-    
-    def _vector_search(self, query: str, query_embedding: List[float]) -> List[Document]:
-        """
-        Search using vector similarity.
-        """
-        # Parse the collection name if it contains dots
-        if "." in self.collection_name:
-            parts = self.collection_name.split(".")
-            if len(parts) == 3:
-                bucket, scope, collection = parts
-                collection_ref = f"`{bucket}`.`{scope}`.`{collection}`"
-            else:
-                collection_ref = f"`{self.collection_name}`"
-        else:
-            collection_ref = f"`{self.collection_name}`"
-
-        vector_query = f"""
-        SELECT META().id as id, landmark.* 
-        FROM {collection_ref} as landmark
-        WHERE SEARCH(landmark, {{
-            "query": {{
-                "vector_search": {{
-                    "vector": {json.dumps(query_embedding)},
-                    "field": "embedding",
-                    "k": 3
-                }}
-            }}
-        }})
-        """
-        
         try:
-            results = self.capella_client.query(vector_query)
-            documents = []
-            
-            for row in results:
-                # get document content
-                doc_id = row.get("id")
-                content = {k: v for k, v in row.items() if k != "id"}
-                
-                # Create a LangChain Document
-                documents.append(
-                    Document(
-                        page_content=str(content),
-                        metadata={"id": doc_id, "source": "vector_search"}
-                    )
-                )
-            
-            return documents
+            # Try a simple operation to check connection
+            self.capella_client.cluster.ping()
         except Exception as e:
-            print(f"Vector search error: {e}")
-            return []
+            print(f"Connection error: {e}. Attempting to reconnect...")
+            try:
+                # Reconnect with the same parameters
+                self.capella_client.connect(timeout_seconds=15, apply_wan_profile=True)
+                print("Successfully reconnected to Couchbase")
+            except Exception as reconnect_error:
+                print(f"Failed to reconnect: {reconnect_error}")
+                raise
     
     def _keyword_search(self, query: str) -> List[Document]:
         """
-        Search using N1QL keywords.
+        Search using Full Text Search (FTS) capabilities of Capella with scoped indexes.
         """
-        # Parse the collection name if it contains dots
-        if "." in self.collection_name:
-            parts = self.collection_name.split(".")
-            if len(parts) == 3:
-                bucket, scope, collection = parts
-                collection_ref = f"`{bucket}`.`{scope}`.`{collection}`"
-            else:
-                collection_ref = f"`{self.collection_name}`"
-        else:
-            collection_ref = f"`{self.collection_name}`"
-
-        # Get potential keywords from the query
-        keywords = query.lower().split()
-        keywords = [k for k in keywords if len(k) > 3]  # Filter out short words
-        
-        if not keywords:
-            return []
-        
-        # find documents that contain any of the keywords within any fields
-        conditions = []
-        for keyword in keywords:
-            conditions.append(f"LOWER(landmark.content) LIKE '%{keyword}%'")
-            conditions.append(f"LOWER(landmark.name) LIKE '%{keyword}%'")
-            conditions.append(f"LOWER(landmark.city) LIKE '%{keyword}%'")
-            conditions.append(f"LOWER(landmark.country) LIKE '%{keyword}%'")
-            
-        where_clause = " OR ".join(conditions)
-        
-        n1ql_query = f"""
-        SELECT META().id as id, landmark.* 
-        FROM {collection_ref} as landmark
-        WHERE {where_clause}
-        LIMIT 5
-        """
-        
         try:
-            results = self.capella_client.query(n1ql_query)
-            documents = []
+            # Force reconnection to ensure a fresh connection
+            try:
+                self.capella_client.connect(timeout_seconds=15, apply_wan_profile=True)
+                print("Successfully reconnected to Couchbase")
+            except Exception as reconnect_error:
+                print(f"Reconnection warning (continuing anyway): {reconnect_error}")
             
-            for row in results:
-                # Extract the document content
-                doc_id = row.get("id")
-                content = {k: v for k, v in row.items() if k != "id"}
-                
-                # Create a LangChain Document
+            bucket = self.capella_client.cluster.bucket(self.capella_client.bucket_name)
+            scope = bucket.scope("inventory")
+            
+            search_options = SearchOptions(
+                limit=self.num_candidates,
+                fields=["activity", "city", "content", "country", "name", "state", "title", "type"]
+            )
+
+            # Create a disjunction query to match any field
+            field_queries = [
+                search.MatchQuery(query, field="name"),
+                search.MatchQuery(query, field="content"),
+                search.MatchQuery(query, field="activity"),
+                search.MatchQuery(query, field="title"),
+                search.MatchQuery(query, field="city"),
+                search.MatchQuery(query, field="country"),
+                search.MatchQuery(query, field="state"),
+                search.MatchQuery(query, field="type")
+            ]
+            
+            # Combine queries with OR logic - unpack the list with *
+            request = search.SearchRequest.create(
+                search.DisjunctionQuery(*field_queries)
+            )
+            result = scope.search(
+                self.text_search_index_name,
+                request,
+                search_options
+            )
+            rows = list(result.rows())
+            print(f"Found {len(rows)} potential matches in keyword search...")
+            documents = []
+            for row in rows:
+                doc_id = row.id
+                # Extract fields with proper error handling
+                fields = row.fields if hasattr(row, 'fields') else {}
+                content = {
+                    "id": doc_id,
+                    "name": fields.get("name", ""),
+                    "content": fields.get("content", ""),
+                    "country": fields.get("country", ""),
+                    "city": fields.get("city", ""),
+                    "type": fields.get("type", ""),
+                    "activity": fields.get("activity", "")
+                }
                 documents.append(
                     Document(
-                        page_content=str(content),
-                        metadata={"id": doc_id, "source": "keyword_search"}
+                        page_content=json.dumps(content),
+                        metadata={
+                            "id": doc_id,
+                            "source": "keyword_search",
+                            "score": row.score if hasattr(row, 'score') else 0
+                        }
                     )
                 )
             
             return documents
+            
         except Exception as e:
-            print(f"Keyword search error: {e}")
+            print(f"Full text search error: {e}")
+            import traceback
+            traceback.print_exc()
             return []
-
-    def retrieve_relevant_documents(self, query_text, collection_name="vectors", top_k=3):
+    
+    def _get_relevant_documents(self, prompt: str) -> List[Document]:
         """
-        Retrieve relevant documents based on vector similarity.
+        Get documents relevant to the query using vector search
+        and keyword search.
         
-        Args:
-            query_text (str): The query text
-            collection_name (str): The collection to search in (default: vectors)
-            top_k (int): Number of results to return
-            
-        Returns:
-            list: List of relevant documents
+        Keyword search is used as a fallback if vector search
+        doesn't return any results, or if the user wants to use both.
         """
-        # Generate embedding for the query
-        query_embedding = self.embedding_generator.generate_embedding(query_text)
-        
-        # Perform vector search using the vectors collection in inventory scope
-        query = f"""
-        SELECT v.doc_id, l.*, ARRAY_DISTANCE(v.embedding, $embedding) AS distance
-        FROM `{self.capella_client.bucket_name}`.`inventory`.`{collection_name}` AS v
-        JOIN `{self.capella_client.bucket_name}`.`inventory`.`landmark` AS l
-        ON v.doc_id = META(l).id
-        WHERE v.embedding IS NOT MISSING
-        ORDER BY distance
-        LIMIT {top_k}
-        """
-        
+        # Check if cappella cluster connection is still active and reconnect if needed
+        self._ensure_connection()
+        # Generate embedding from the query
+        query_embedding = self.embedding_generator.generate_embedding(prompt)
+        all_results = {}
+        score_results = {}
+        vector_doc_ids = []
         try:
-            result = self.capella_client.cluster.query(
-                query,
-                QueryOptions(named_parameters={'embedding': query_embedding})
+            # STEP 1: Perform vector search to get relevant document IDs
+            scope = self.capella_client.cluster.bucket(self.capella_client.bucket_name).scope("inventory")
+            # Create the search request, increase num_candidates if you want more results
+            search_req = search.SearchRequest.create(search.MatchNoneQuery()).with_vector_search(
+                VectorSearch.from_vector_query(
+                    VectorQuery('embedding', query_embedding, num_candidates=self.num_candidates)
+                )
             )
-            
-            return list(result)
+            # NOTE: DOCUMENT FIELDS ARE ONLY RETURNED 
+            # IF THEY ARE INCLUDED IN THE SEARCH INDEX
+            search_options = SearchOptions(limit=10, fields=["*"])
+            result = scope.search(
+                self.vector_search_index_name,
+                search_req, 
+                search_options
+            )
+            # Get document IDs from vector search results
+            for row in result.rows():
+                doc_id = row.id
+                if doc_id and doc_id.startswith("vector::"):
+                    try:
+                        original_doc_id = doc_id.replace("vector::", "")
+                        vector_doc_ids.append(original_doc_id)
+                        score_results[original_doc_id] = row.score
+                    except Exception as e:
+                        print(f"Error extracting document ID from {doc_id}: {e}")
+            # STEP 2: Fetch the landmark documents using the IDs
+            if vector_doc_ids:
+                # Create IN clause for the document IDs
+                doc_ids_str = ", ".join([f"'{doc_id}'" for doc_id in vector_doc_ids])
+                query = f"""
+                SELECT META().id as id, l.*
+                FROM `{self.capella_client.bucket_name}`.inventory.landmark AS l
+                WHERE META().id IN [{doc_ids_str}]
+                """
+                landmark_results = self.capella_client.execute_query(query)
+                for row in landmark_results:
+                    doc_id = row.get("id")
+                    # Extract the landmark data from the nested 'l' field
+                    if 'l' in row:
+                        content = row['l']
+                    else:
+                        # Remove 'id' field
+                        content = {k: v for k, v in row.items() if k != "id"}
+                    # Create a LangChain Document
+                    all_results[doc_id] = Document(
+                        page_content=json.dumps(content),
+                        metadata={"id": doc_id, "source": "vector_search", "score": score_results.get(f"landmark_{doc_id}", 0)}
+                    )
         except Exception as e:
-            print(f"Vector search error: {e}")
-            # Fall back to keyword search if vector search fails
-            return self._keyword_search(query_text) 
+            print(f"Vector search error: {str(e)}")
+        # Perform keyword search as a fallback, 
+        # or if user wants to use both keyword and vector search
+        if not all_results or len(all_results) != self.num_candidates or self.keyword_search:
+            print("Performing keyword search...")
+            keyword_results = self._keyword_search(prompt)
+            for doc in keyword_results:
+                doc_id = doc.metadata.get("id")
+                doc_id = int(doc_id.split(f"{self.collection_name}_")[1])
+                # don't need to duplicate ids
+                if doc_id not in all_results:
+                    all_results[doc_id] = doc
+                else:
+                    print(f"Match was already found during vector embeddingsearch: {doc_id}")
+        
+        return list(all_results.values())
