@@ -25,8 +25,9 @@
        if you want this code to work as is. I utilized the "landmark" collection for this project. The keyword search option within the chatbot 
        will not work until this is done.
      - For the index names, I used:
-        - landmarks-vector-index (INDEX FOR VECTOR SEARCH)
-        - landmarks-text-index (INDEX FOR FULL TEXT SEARCH)
+        - 'landmarks-vector-index' (INDEX FOR VECTOR SEARCH)
+        - 'landmarks-text-index' (INDEX FOR FULL TEXT SEARCH)
+        - NOTE: do not include the quotes or anything in the parentheses
 
 ### Setup Instructions
 
