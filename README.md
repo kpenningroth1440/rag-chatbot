@@ -6,6 +6,10 @@
 4. The chatbot will then use the retrieved documents to generate a response, after formatting into a readable answer.
 5. The response is then displayed to the user.
 
+Flowchart:
+![image](https://github.com/user-attachments/assets/23b11677-e7f7-4c59-a6a6-0d25f5aaeb5f)
+
+
 ## Quick Setup with Shell/Batch Scripts
 
 ### Prerequisites
